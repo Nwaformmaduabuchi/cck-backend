@@ -233,6 +233,16 @@ class StoreEndpointWorkflowTests(TestCase):
         history_detail = self.client.get(f"/list/history/{movement_id}/")
         self.assertEqual(history_detail.status_code, 200, history_detail.data)
 
+        unpaid_receipt = self.client.post(
+            f"/create/sale/{sale_id}/receipt/",
+            {},
+            format="json",
+            HTTP_X_UUID=str(uuid.uuid4()),
+        )
+        self.assertEqual(unpaid_receipt.status_code, 200)
+        self.assertEqual(unpaid_receipt["Content-Type"], "application/pdf")
+        self.assertTrue(unpaid_receipt.content.startswith(b"%PDF"))
+
         missing_idempotency_key = self.client.post(
             f"/create/sale/{sale_id}/pay/",
             {"amount": "37.00", "method": "cash"},

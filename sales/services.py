@@ -427,6 +427,8 @@ class ReceiptCreateService:
         )
         return receipt
 
+    @staticmethod
+    @transaction.atomic
     def generate_no_payment_receipt(*, sale, key):
             if not sale :
                 raise ValidationError("Both sale and payment instances are required to generate a receipt.")

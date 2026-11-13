@@ -13,12 +13,13 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
 import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.environ["SECRET_KEY"]
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -33,12 +34,19 @@ DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "https://cck-storemaster.vercel.app"
 ]
 
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
+    "cck-backend-4vvv.onrender.com"
+]
+
+render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if render_hostname:
+    ALLOWED_HOSTS.append(render_hostname)
+
+CSRF_TRUSTED_ORIGINS = [
+  "https://cck-storemaster.vercel.app"
 ]
 
 render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")

@@ -272,7 +272,6 @@ class SaleService:
         if 'amount' not in data or 'method' not in data:
             raise ValidationError("Both 'amount' and 'method' are required to process a payment.")
 
-        print("payment started")
         if data["amount"] < 0:
             return SaleService.refund_payment(data["amount"], instance)
             
@@ -402,10 +401,6 @@ class ReceiptCreateService:
     @staticmethod
     @transaction.atomic
     def generate_receipt(*, sale, payment, key):
-        print('service for no payment receipt enterd')
-        if not payment:
-            print('service for no payment receipt enterd')
-        
         if not sale:
             raise ValidationError("Both sale and payment instances are required to generate a receipt.")
             
@@ -433,7 +428,6 @@ class ReceiptCreateService:
         return receipt
 
     def generate_no_payment_receipt(*, sale, key):
-            print('service for no payment receipt enterd')
             if not sale :
                 raise ValidationError("Both sale and payment instances are required to generate a receipt.")
                 

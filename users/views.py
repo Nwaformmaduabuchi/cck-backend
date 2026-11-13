@@ -1,6 +1,3 @@
-from urllib import response
-
-from django.conf import settings
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -12,7 +9,6 @@ from rest_framework.permissions import IsAuthenticated
 from .permisions import HasCompany
 from .services import CompanyService
 from .serializers import CompanySerializer, UserDataSerializer
-import traceback
 from .services import create_user
 from .serializers import LoginSerializer, UserSerializer
 
@@ -38,8 +34,7 @@ class RefreshTokenView(TokenRefreshView):
         request.data["refresh"] = refresh
         
         response = super().post(request, *args, **kwargs)
-        if response.status_code == 200:
-            return response
+        return response
 
 class GetUserView(GenericAPIView):
     permission_classes = [IsAuthenticated, HasCompany]
@@ -55,7 +50,7 @@ class GetUserView(GenericAPIView):
         return Response(serializer.data)
 
 class LogOutView(GenericAPIView):
-    permission_classes = [IsAuthenticated, HasCompany]
+    permission_classes = [IsAuthenticated]
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("refresh")
         if refresh_token:
@@ -77,18 +72,9 @@ class RegisterView(GenericAPIView):
     serializer_class = UserSerializer
 
     def post(self, request, *args, **kwargs):
-        print(request.data)
-        try:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            print("validate_data is =", serializer.validated_data)
-            user = create_user(
-                data=serializer.validated_data
-            )
-        except Exception as e:
-                print("TYPE:", type(e))
-                print("ERROR:", repr(e))
-                traceback.print_exc()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = create_user(data=serializer.validated_data)
 
         return Response(
             {

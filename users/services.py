@@ -22,8 +22,6 @@ def create_user(*, data):
 class CompanyService:
     @staticmethod
     def create_company(*, data, owner):
-        print("inside service ...", getattr(owner, 'has_company', False))
-        
         if not owner:
             raise ValidationError("An owner must be provided to register a company.")
             

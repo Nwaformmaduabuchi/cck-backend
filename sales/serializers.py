@@ -111,7 +111,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
 class PaymentInputSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    method = serializers.ChoiceField(choices=Payment.PaymentChoices.choices, required=False)
+    method = serializers.ChoiceField(choices=Payment.PaymentChoices.choices)
 
 class ReceiptSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,4 +1,5 @@
-from rest_framework.viewsets import ModelViewSet
+from rest_framework import mixins
+from rest_framework.viewsets import GenericViewSet, ReadOnlyModelViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from users.permisions import HasCompany
@@ -21,9 +22,9 @@ from users.authentication import CustomJWTAuthentication
 from .services import SaleService, ReceiptCreateService
 
 
-class CreateSaleView(ModelViewSet):
+class CreateSaleView(GenericViewSet):
     authentication_classes = [CustomJWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasCompany]
     serializer_class = CreateSaleSerializer
 
     def get_queryset(self):
@@ -39,7 +40,6 @@ class CreateSaleView(ModelViewSet):
             SaleSerializer(sale).data,
             status=status.HTTP_201_CREATED
         )
-        print("response data:", response.data)
         return response
 
     @action(detail=True, methods=['post'], url_path='pay')
@@ -47,6 +47,8 @@ class CreateSaleView(ModelViewSet):
        
         sale = self.get_object()
         uuid = request.META.get('HTTP_X_UUID')
+        if not uuid:
+            return Response({"detail": "X-UUID header is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         payment = PaymentInputSerializer(data=request.data)
         payment.is_valid(raise_exception=True)
@@ -60,12 +62,9 @@ class CreateSaleView(ModelViewSet):
         sale = self.get_object()
 
         uuid = request.headers.get("X-UUID")
-        print("before payment", uuid)
         payment = sale.payments.order_by("-created_at").first()
-        print("payment", payment)
         if payment is None:
             receipt = ReceiptCreateService.generate_no_payment_receipt(sale=sale, key=uuid)
-            print("receipt", receipt)
         else:
             receipt = ReceiptCreateService.generate_receipt(
                 sale=sale,
@@ -88,7 +87,6 @@ class CreateSaleView(ModelViewSet):
             "amount_paid": sale.total_payment,
             "outstanding": sale.outstanding_amount,
         }
-        print("context", context)
         if payment is not None:
             context["payment"] = payment
 
@@ -97,15 +95,12 @@ class CreateSaleView(ModelViewSet):
                 "receipts/sales_receipts.html",
                 context,
             )
-            print("html generated", html)
             pdf = HTML(
                 string=html,
                 base_url=request.build_absolute_uri("/"),
             ).write_pdf()
 
         except Exception as e:
-            print("RECEIPT PDF ERROR:", repr(e))
-    
             traceback.print_exc()
             return Response(
                 {"detail": "Receipt PDF could not be generated!"},
@@ -124,7 +119,7 @@ class CreateSaleView(ModelViewSet):
         return response
 
 
-class ListSaleView(ModelViewSet):
+class ListSaleView(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated,HasCompany]
     queryset = Sale.objects.select_related("customer").prefetch_related("sale_items").all()
     serializer_class = SaleSerializer
@@ -136,7 +131,7 @@ class ListSaleView(ModelViewSet):
         
         return super().get_queryset().filter(company=self.request.user.company).exclude(sale_items__isnull=True).distinct()
 
-class DeleteSaleView(ModelViewSet):
+class DeleteSaleView(GenericViewSet):
     permission_classes = [IsAuthenticated,HasCompany]
     queryset = SaleItem.objects.all()
 
@@ -149,8 +144,8 @@ class DeleteSaleView(ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PatchSaleView(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class PatchSaleView(mixins.UpdateModelMixin, GenericViewSet):
+    permission_classes = [IsAuthenticated, HasCompany]
     queryset = SaleItem.objects.all()
     serializer_class = SaleItemReadSerializer
     
@@ -161,7 +156,7 @@ class PatchSaleView(ModelViewSet):
         SaleService.partial_update(instance=serializer.instance, data=serializer.validated_data)
 
 
-class UpdateSaleView(ModelViewSet):
+class UpdateSaleView(GenericViewSet):
     permission_classes = [IsAuthenticated,HasCompany]
     queryset = Sale.objects.all()
     serializer_class = UpdateSerializer
@@ -169,12 +164,18 @@ class UpdateSaleView(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(company=self.request.user.company)
     
-    def perform_create(self, serializer):
-        SaleService.full_create(data=serializer.validated_data, company=self.request.user.company)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sale = SaleService.full_create(
+            data=serializer.validated_data,
+            company=request.user.company,
+        )
+        return Response(SaleSerializer(sale).data, status=status.HTTP_200_OK)
   
 
-class StockMovementView(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class StockMovementView(ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated, HasCompany]
     queryset = StockMovement.objects.select_related("variant", "variant__product")
     serializer_class = StockMovementSerializer
 
@@ -182,7 +183,7 @@ class StockMovementView(ModelViewSet):
         return super().get_queryset().filter(variant__product__category__company=self.request.user.company)
     
 
-class CustomerView(ModelViewSet):
+class CustomerView(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, HasCompany]
     serializer_class = CustomerSerializer
     
@@ -213,12 +214,11 @@ class CustomerView(ModelViewSet):
 
         return queryset
 
-class PaymentView(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class PaymentView(ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated, HasCompany]
     serializer_class = SaleWithPaymentsSerializer
 
     def get_queryset(self):
-        print("sale with refunds")
         return Sale.objects.filter(
             company=self.request.user.company
         ).prefetch_related("refunds")
